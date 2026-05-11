@@ -1,9 +1,12 @@
+import re
+import os
+
 import tomlkit
 from tomlkit import parse, dumps
 import sys
 
 if 1:
-    import spec0_data
+    from . import spec0_data
 
     pkgs = spec0_data.pkg_vers_min
 else:
@@ -53,7 +56,7 @@ def updateall(toml, func):
                     func(d)
 
 
-def runit(fn):
+def runit_toml(fn):
     with open(fn) as f:
         toml = parse(f.read())
 
@@ -63,7 +66,41 @@ def runit(fn):
         f.write(dumps(toml))
 
 
+def runit_reqtxt(fn):
+    found = []
+    unknown = []
+    myre = re.compile(r"\s*(\w*)\s*([=!<>]+)\s*(.*)")
+    with open(fn) as f:
+        for ln in f:
+            match = myre.match(ln)
+            if match:
+                found.append(ln)
+            else:
+                print(f"failed to match `{ln}`")
+                unknown.append(ln)
+    update(found)
+    print(found)
+    with open(fn, "w") as f:
+        for ac in found:
+            if not ac.endswith("\n"):
+                ac = f"{ac}\n"
+            f.write(ac)
+        for ln in unknown:
+            f.write(ln)
+
+
+def runit(fn):
+    if not os.path.exists(fn):
+        print(f"did not find {fn}")
+    if fn.endswith(".toml"):
+        return runit_toml(fn)
+    if fn.endswith(".txt"):
+        return runit_reqtxt(fn)
+    raise ValueError(f"Unexpected file {fn}")
+
+
 dirs = sys.argv[1:] or ["."]
 
 for d in dirs:
     runit(f"{d}/pyproject.toml")
+    runit(f"{d}/requirements.txt")
